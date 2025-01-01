@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import * as d3 from 'd3';
 import { GraphData } from '../types/graph';
-import { Button } from "@/components/ui/button";
-import { Play, Pause } from "lucide-react";
 
 interface GraphProps {
   data: GraphData;
@@ -62,7 +60,7 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
   
     // Reset all circles to white first
     g.selectAll('circle')
-      .attr('fill', function() {
+      .attr('fill', function(this: SVGCircleElement) {
         const label = d3.select(this).attr('data-label');
         // Preserve visited node colors for nodes that have been visited
         const nodeIndex = currentIndexRef.current;
@@ -88,11 +86,11 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
     // Reset all circles
     g.selectAll('circle')
       .attr('fill', 'white')
-      .filter(function () {
+      .filter(function (this: SVGCircleElement) {
         const label = d3.select(this).attr('data-label');
         return label === startNode || label === goalNode;
       })
-      .attr('fill', function () {
+      .attr('fill', function (this: SVGCircleElement) {
         const label = d3.select(this).attr('data-label');
         if (label === startNode) return 'red';
         if (label === goalNode) return 'green';
@@ -114,7 +112,7 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
     const zoom = d3.zoom()
       .extent([[0, 0], [width, height]])
       .scaleExtent([1, 8])
-      .on('zoom', ({ transform }) => {
+      .on('zoom', ({ transform }: { transform: d3.ZoomTransform }) => {
         g.attr('transform', transform);
       });
 
@@ -277,11 +275,11 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
   
         g.selectAll('circle')
           .attr('fill', 'white')
-          .filter(function () {
+          .filter(function (this: SVGCircleElement) {
             const label = d3.select(this).attr('data-label');
             return label === startNode || label === goalNode;
           })
-          .attr('fill', function () {
+          .attr('fill', function (this: SVGCircleElement) {
             const label = d3.select(this).attr('data-label');
             if (label === startNode) return 'red';
             if (label === goalNode) return 'green';
