@@ -29,6 +29,7 @@ export interface Node {
     queue_size: number;
     path_nodes: number;
     path_cost: number;
+    [key: string]: number; // Index signature for compatibility with Record<string, number>
   }
   
   export interface SearchResult {

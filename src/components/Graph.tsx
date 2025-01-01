@@ -22,7 +22,6 @@ export interface GraphRef {
 
 export const Graph = React.forwardRef<GraphRef, GraphProps>(({
   data,
-  visitedLabels,
   paths,
   speed = 1000,
   algorithm = 'dfs',
