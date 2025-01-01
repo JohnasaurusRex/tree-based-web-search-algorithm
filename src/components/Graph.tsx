@@ -27,7 +27,6 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
   algorithm = 'dfs',
   startNode,
   goalNode,
-  iterationCounts,
   onAnimationComplete
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -98,33 +97,6 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
       });
   }, [startNode, goalNode, paths]);
 
-  const resetVisualization = useCallback(() => {
-    if (!gRef.current) return;
-    clearAnimation();
-    currentIndexRef.current = 0;
-    setCurrentStep(null);
-    setIsComplete(false);
-    setIsPaused(false);
-    
-    const g = d3.select(gRef.current);
-    
-    g.selectAll('circle')
-      .attr('fill', 'white')
-      .filter(function (this: SVGCircleElement) {
-        const label = d3.select(this).attr('data-label');
-        return label === startNode || label === goalNode;
-      })
-      .attr('fill', function (this: SVGCircleElement) {
-        const label = d3.select(this).attr('data-label');
-        if (label === startNode) return 'red';
-        if (label === goalNode) return 'green';
-        return 'white';
-      });
-
-    g.selectAll('line')
-      .attr('stroke', 'black')
-      .attr('stroke-width', 1);
-  }, [startNode, goalNode, clearAnimation]);
 
   const initializeZoom = useCallback(() => {
     if (!svgRef.current) return;
