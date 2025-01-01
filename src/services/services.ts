@@ -1,7 +1,7 @@
 // src/services/api.ts
 import { GraphData, SearchResult, SearchAlgorithm } from '../types/graph';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://tree-based-search-algorithm.vercel.app/api';
 
 export const fetchGraphData = async (): Promise<GraphData> => {
   const response = await fetch(`${API_BASE_URL}/graph_data`);
