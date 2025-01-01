@@ -30,8 +30,10 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
   iterationCounts,
   onAnimationComplete
 }, ref) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement | null>(null);
+  const [dimensions, setDimensions] = useState({ width: 900, height: 700 });
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [isComplete, setIsComplete] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -39,12 +41,38 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
   const currentIndexRef = useRef<number>(0);
   const onCompleteRef = useRef(onAnimationComplete);
 
+  const calculateDimensions = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    const containerWidth = containerRef.current.clientWidth;
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+      const size = Math.min(500, containerWidth);
+      setDimensions({ width: size, height: size });
+    } else {
+      const maxWidth = Math.min(900, containerWidth);
+      const aspectRatio = 700 / 900;
+      setDimensions({ 
+        width: maxWidth,
+        height: Math.round(maxWidth * aspectRatio)
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    calculateDimensions();
+    const handleResize = () => {
+      calculateDimensions();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [calculateDimensions]);
+
   useEffect(() => {
     onCompleteRef.current = onAnimationComplete;
   }, [onAnimationComplete]);
-
-  const width = 900;
-  const height = 700;
 
   const clearAnimation = useCallback(() => {
     if (animationRef.current) {
@@ -57,11 +85,9 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
     if (!gRef.current) return;
     const g = d3.select(gRef.current);
   
-    // Reset all circles to white first
     g.selectAll('circle')
       .attr('fill', function(this: SVGCircleElement) {
         const label = d3.select(this).attr('data-label');
-        // Preserve visited node colors for nodes that have been visited
         const nodeIndex = currentIndexRef.current;
         const hasBeenVisited = paths.slice(0, nodeIndex).some(([_, target]) => target === label);
         
@@ -81,8 +107,7 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
     setIsPaused(false);
     
     const g = d3.select(gRef.current);
-  
-    // Reset all circles
+    
     g.selectAll('circle')
       .attr('fill', 'white')
       .filter(function (this: SVGCircleElement) {
@@ -96,7 +121,6 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
         return 'white';
       });
 
-    // Reset all lines
     g.selectAll('line')
       .attr('stroke', 'black')
       .attr('stroke-width', 1);
@@ -109,14 +133,14 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
     const g = svg.select('g');
 
     const zoom = d3.zoom()
-      .extent([[0, 0], [width, height]])
+      .extent([[0, 0], [dimensions.width, dimensions.height]])
       .scaleExtent([1, 8])
       .on('zoom', ({ transform }: { transform: d3.ZoomTransform }) => {
         g.attr('transform', transform);
       });
 
     svg.call(zoom as any);
-  }, [width, height]);
+  }, [dimensions]);
 
   const drawGraph = useCallback(() => {
     if (!svgRef.current || !data?.nodes?.length || !gRef.current) return;
@@ -124,21 +148,35 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
     const g = d3.select(gRef.current);
     g.selectAll('*').remove();
 
-    // Draw links with distance labels
+    // Scale node positions based on current dimensions
+    const xScale = d3.scaleLinear()
+      .domain([0, 900])
+      .range([30, dimensions.width - 30]);
+    
+    const yScale = d3.scaleLinear()
+      .domain([0, 700])
+      .range([30, dimensions.height - 30]);
+
+    // Draw links with scaled positions
     data.links.forEach(({ source, target, distance }) => {
       const sourceNode = data.nodes[source];
       const targetNode = data.nodes[target];
       
-      const centerX = (sourceNode.x + targetNode.x) / 2;
-      const centerY = (sourceNode.y + targetNode.y) / 2;
+      const scaledSourceX = xScale(sourceNode.x);
+      const scaledSourceY = yScale(sourceNode.y);
+      const scaledTargetX = xScale(targetNode.x);
+      const scaledTargetY = yScale(targetNode.y);
+      
+      const centerX = (scaledSourceX + scaledTargetX) / 2;
+      const centerY = (scaledSourceY + scaledTargetY) / 2;
 
       g.append('line')
         .attr('id', `line-${source}-${target}`)
         .attr('class', 'link')
-        .attr('x1', sourceNode.x)
-        .attr('y1', sourceNode.y)
-        .attr('x2', targetNode.x)
-        .attr('y2', targetNode.y)
+        .attr('x1', scaledSourceX)
+        .attr('y1', scaledSourceY)
+        .attr('x2', scaledTargetX)
+        .attr('y2', scaledTargetY)
         .attr('stroke', 'black')
         .attr('stroke-width', 1);
 
@@ -148,37 +186,43 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
         .attr('dy', '.35em')
         .attr('text-anchor', 'middle')
         .attr('class', 'distance-label')
+        .style('font-size', `${dimensions.width <= 500 ? '10px' : '12px'}`)
         .text(Math.round(distance));
     });
 
-    // Draw nodes with labels
+    // Draw nodes with scaled positions
     data.nodes.forEach(({ x, y, label, index }) => {
+      const scaledX = xScale(x);
+      const scaledY = yScale(y);
+      const nodeRadius = dimensions.width <= 500 ? 15 : 20;
+
       g.append('circle')
         .attr('id', `circle-${index}`)
-        .attr('cx', x)
-        .attr('cy', y)
-        .attr('r', 20)
+        .attr('cx', scaledX)
+        .attr('cy', scaledY)
+        .attr('r', nodeRadius)
         .attr('fill', 'white')
         .attr('stroke', 'black')
         .attr('data-label', label)
         .attr('fill', label === startNode ? 'red' : label === goalNode ? 'green' : 'white');
 
       g.append('text')
-        .attr('x', x)
-        .attr('y', y)
+        .attr('x', scaledX)
+        .attr('y', scaledY)
         .attr('dy', '.35em')
         .attr('text-anchor', 'middle')
         .attr('class', 'node-label')
+        .style('font-size', `${dimensions.width <= 500 ? '12px' : '14px'}`)
         .text(label);
     });
-  }, [data, startNode, goalNode]);
+  }, [data, startNode, goalNode, dimensions]);
 
   const startAnimation = useCallback(() => {
     if (!gRef.current || !paths.length) return;
 
     if (currentIndexRef.current === 0) {
-        setInitialNodeColors();
-      }
+      setInitialNodeColors();
+    }
 
     const g = d3.select(gRef.current);
   
@@ -211,7 +255,7 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
 
           g.select(`#line-${sourceNode.index}-${targetNode.index}`)
             .attr('stroke', 'red')
-            .attr('stroke-width', 10);
+            .attr('stroke-width', dimensions.width <= 500 ? 5 : 10);
 
           g.select(`#circle-${targetNode.index}`)
             .attr('fill', 'red');
@@ -231,61 +275,53 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
 
       currentIndexRef.current++;
     };
-  
-    // Only start new animation if not currently running
+
     if (!animationRef.current) {
       animationRef.current = setInterval(animate, speed);
     }
   
     return () => clearAnimation();
-  }, [paths, data.nodes, speed, algorithm, resetVisualization, setInitialNodeColors, isPaused, clearAnimation]);
+  }, [paths, data.nodes, speed, algorithm, dimensions, isPaused, clearAnimation, setInitialNodeColors]);
 
-  // Expose methods via ref
   React.useImperativeHandle(ref, () => ({
     togglePause: () => {
       setIsPaused(!isPaused);
       if (isPaused) {
-        // If we're unpausing, restart the animation interval
         if (!animationRef.current) {
           startAnimation();
         }
       } else {
-        // If we're pausing, just clear the interval
-        if (animationRef.current) {
-          clearInterval(animationRef.current);
-          animationRef.current = null;
-        }
+        clearAnimation();
       }
     },
     resetVisualization: () => {
-        clearAnimation();
-        currentIndexRef.current = 0;
-        setCurrentStep(null);
-        setIsComplete(false);
-        setIsPaused(false);
-        setInitialNodeColors();
-        
-        const g = d3.select(gRef.current);
-        
-        // Reset all lines and circles
-        g.selectAll('line')
-          .attr('stroke', 'black')
-          .attr('stroke-width', 1);
-  
-        g.selectAll('circle')
-          .attr('fill', 'white')
-          .filter(function (this: SVGCircleElement) {
-            const label = d3.select(this).attr('data-label');
-            return label === startNode || label === goalNode;
-          })
-          .attr('fill', function (this: SVGCircleElement) {
-            const label = d3.select(this).attr('data-label');
-            if (label === startNode) return 'red';
-            if (label === goalNode) return 'green';
-            return 'white';
-          });
-      }
-    }));
+      clearAnimation();
+      currentIndexRef.current = 0;
+      setCurrentStep(null);
+      setIsComplete(false);
+      setIsPaused(false);
+      setInitialNodeColors();
+      
+      const g = d3.select(gRef.current);
+      
+      g.selectAll('line')
+        .attr('stroke', 'black')
+        .attr('stroke-width', 1);
+
+      g.selectAll('circle')
+        .attr('fill', 'white')
+        .filter(function (this: SVGCircleElement) {
+          const label = d3.select(this).attr('data-label');
+          return label === startNode || label === goalNode;
+        })
+        .attr('fill', function (this: SVGCircleElement) {
+          const label = d3.select(this).attr('data-label');
+          if (label === startNode) return 'red';
+          if (label === goalNode) return 'green';
+          return 'white';
+        });
+    }
+  }));
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -301,7 +337,7 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
 
   useEffect(() => {
     drawGraph();
-  }, [drawGraph]);
+  }, [drawGraph, dimensions]);
 
   useEffect(() => {
     startAnimation();
@@ -313,11 +349,11 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
   }, [clearAnimation]);
 
   return (
-    <div className="space-y-4">
+    <div ref={containerRef} className="w-full space-y-4">
       <svg
         ref={svgRef}
-        width={width}
-        height={height}
+        width={dimensions.width}
+        height={dimensions.height}
         style={{
           border: '1px solid #ccc',
           borderRadius: '4px',
@@ -325,32 +361,14 @@ export const Graph = React.forwardRef<GraphRef, GraphProps>(({
         }}
       />
       {currentStep && (
-        <div className="p-4 bg-gray-800 rounded text-white">
-          <p className="font-mono">{currentStep}</p>
-          {isComplete && <p className="font-mono text-green-400">Goal reached!</p>}
+        <div className="p-4 rounded text-white">
+          <p className="font-mono text-sm md:text-base">{currentStep}</p>
+          {isComplete && (
+            <p className="font-mono text-sm md:text-base text-green-400">
+              Goal reached!
+            </p>
+          )}
         </div>
-      )}
-      {isComplete && iterationCounts && (
-        <table className="min-w-full border-collapse border">
-          <thead>
-            <tr>
-              <th className="border p-2">Parameter</th>
-              <th className="border p-2">Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(iterationCounts).map(([param, value]) => (
-              <tr key={param}>
-                <td className="border p-2">
-                  {param.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                </td>
-                <td className="border p-2">
-                  {param === 'path_cost' ? Math.round(value) : value}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       )}
     </div>
   );

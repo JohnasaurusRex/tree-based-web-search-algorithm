@@ -84,7 +84,25 @@ export const App: React.FC = () => {
     }
   };
 
+  const [error, setError] = useState<string | null>(null);
+
+  const validateNodes = () => {
+    if (!graphData?.nodes) return false;
+    const validNodes = graphData.nodes.map(node => node.label);
+    if (!validNodes.includes(startNode)) {
+      setError(`Invalid start node "${startNode}". Valid nodes: ${validNodes.join(', ')}`);
+      return false;
+    }
+    if (!validNodes.includes(goalNode)) {
+      setError(`Invalid goal node "${goalNode}". Valid nodes: ${validNodes.join(', ')}`);
+      return false;
+    }
+    setError(null);
+    return true;
+  };
+
   const handleSearch = async () => {
+    if (!validateNodes()) return;
     resetSearch();
     setIsSearching(true);
     
@@ -93,9 +111,11 @@ export const App: React.FC = () => {
       setSearchResult(result);
     } catch (error) {
       console.error('Search failed:', error);
+      setError('Search failed: ' + (error as Error).message);
       setIsSearching(false);
     }
   };
+
 
   const handleGenerate = async () => {
     resetSearch();
@@ -133,8 +153,8 @@ export const App: React.FC = () => {
       <div className="flex justify-end mb-4">
           <ModeToggle />
         </div>
-        <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-6rem)]">
-          <Card className="flex-1 dark:bg-gray-800 overflow-y-auto">
+        <div className="flex flex-col lg:flex-row gap-4 h-[calc(100vh-6rem)] ">
+          <Card className="flex-1 dark:bg-gray-800">
             <CardHeader>
               <CardTitle>Graph Search Visualization</CardTitle>
             </CardHeader>
@@ -153,7 +173,7 @@ export const App: React.FC = () => {
               />
             </CardContent>
           </Card>
-          <Card className="lg:w-1/3 dark:bg-gray-800 overflow-y-auto">
+          <Card className="lg:w-1/3 dark:bg-gray-800">
             <CardHeader>
               <CardTitle>Controls</CardTitle>
             </CardHeader>
@@ -251,6 +271,34 @@ export const App: React.FC = () => {
                   Run Search
                 </Button>
               </div>
+              {error && (
+                <div className="p-2 text-red-500 border border-red-500 rounded">
+                  {error}
+                </div>
+              )}
+              {searchResult?.iteration_counts && (
+              <div className="mt-4 mb-10 py-0">
+                <h4 className="font-semibold mb-2 text-sm">Search Parameters</h4>
+                <div className="border rounded">
+                  <table className="min-w-full text-xs">
+                    <tbody>
+                      {Object.entries(searchResult.iteration_counts).map(([param, value]) => (
+                        <tr key={param} className="border-b last:border-b-0">
+                          <td className="p-2 border-r">
+                            {param.split('_').map(word =>
+                              word.charAt(0).toUpperCase() + word.slice(1)
+                            ).join(' ')}
+                          </td>
+                          <td className="p-2">
+                            {param === 'path_cost' ? Math.round(value) : value}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
             </CardContent>
           </Card>
         </div>
