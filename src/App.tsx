@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ThemeProvider } from "./components/theme-provider"
 import { ModeToggle } from "./components/mode-toggle"
-import { Play, Pause, RotateCcw } from "lucide-react"
+import { Play, Pause } from "lucide-react"
 
 export const App: React.FC = () => {
   const graphRef = useRef<GraphRef>(null);
